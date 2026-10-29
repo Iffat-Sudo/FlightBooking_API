@@ -1,21 +1,27 @@
 package se.lexicon.flightbooking_api.service;
 
-import se.lexicon.flightbooking_api.dto.AvailableFlightDTO;
+import se.lexicon.flightbooking_api.dto.AirportDTO;
 import se.lexicon.flightbooking_api.dto.BookFlightRequestDTO;
-import se.lexicon.flightbooking_api.dto.FlightBookingDTO;
-import se.lexicon.flightbooking_api.dto.FlightListDTO;
+import se.lexicon.flightbooking_api.dto.BookingDTO;
+import se.lexicon.flightbooking_api.dto.FlightDTO;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface FlightBookingService {
 
-    FlightBookingDTO bookFlight(Long flightId, BookFlightRequestDTO bookingRequest);
+    List<AirportDTO> findAllAirports();
 
-    void cancelFlight(Long flightId, String passengerEmail);
+    List<FlightDTO> findUpcomingFlights();
 
-    List<FlightListDTO> findAll();
+    List<FlightDTO> findAvailableFlights();
 
-    List<AvailableFlightDTO> findAvailableFlights();
+    List<FlightDTO> searchFlights(String from, String to, LocalDate date, BigDecimal maxPrice);
 
-    List<FlightBookingDTO> findBookingsByEmail(String email);
+    BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request);
+
+    List<BookingDTO> findBookingsByEmail(String email);
+
+    void cancelBooking(Long bookingId, String email);
 }

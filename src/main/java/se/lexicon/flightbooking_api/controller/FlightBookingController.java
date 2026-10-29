@@ -8,70 +8,89 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import se.lexicon.flightbooking_api.dto.AvailableFlightDTO;
+import se.lexicon.flightbooking_api.dto.AirportDTO;
 import se.lexicon.flightbooking_api.dto.BookFlightRequestDTO;
-import se.lexicon.flightbooking_api.dto.FlightBookingDTO;
-import se.lexicon.flightbooking_api.dto.FlightListDTO;
+import se.lexicon.flightbooking_api.dto.BookingDTO;
+import se.lexicon.flightbooking_api.dto.FlightDTO;
 import se.lexicon.flightbooking_api.service.FlightBookingService;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/flights")
+@RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Flight Booking API", description = "APIs for flight booking operations")
+@Tag(name = "Flight Booking API", description = "Airports, flights and bookings")
 public class FlightBookingController {
 
     private final FlightBookingService flightBookingService;
 
-    @Operation(summary = "Get all flights", description = "Returns a list of all flights")
-    @ApiResponse(responseCode = "200", description = "Successfully retrieved all flights")
-    @GetMapping
-    public ResponseEntity<List<FlightListDTO>> getAllFlights() {
-        return ResponseEntity.ok(flightBookingService.findAll());
+    @Operation(summary = "Get all airports", description = "Returns all airports, sorted by city")
+    @GetMapping("/airports")
+    public ResponseEntity<List<AirportDTO>> getAirports() {
+        return ResponseEntity.ok(flightBookingService.findAllAirports());
     }
 
-    @Operation(summary = "Get available flights", description = "Returns a list of all available flights")
-    @ApiResponse(responseCode = "200", description = "Successfully retrieved available flights")
-    @GetMapping("/available")
-    public ResponseEntity<List<AvailableFlightDTO>> getAvailableFlights() {
+    @Operation(summary = "Get upcoming flights", description = "Returns all flights in the future")
+    @GetMapping("/flights")
+    public ResponseEntity<List<FlightDTO>> getUpcomingFlights() {
+        return ResponseEntity.ok(flightBookingService.findUpcomingFlights());
+    }
+
+    @Operation(summary = "Get available flights", description = "Returns future flights with free seats")
+    @GetMapping("/flights/available")
+    public ResponseEntity<List<FlightDTO>> getAvailableFlights() {
         return ResponseEntity.ok(flightBookingService.findAvailableFlights());
     }
 
-    @Operation(summary = "Book a flight", description = "Books a flight for a passenger")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Flight successfully booked"),
-            @ApiResponse(responseCode = "404", description = "Flight not found", content = @Content),
-            @ApiResponse(responseCode = "400", description = "Flight not available", content = @Content)
-    })
-    @PostMapping("/{flightId}/book")
-    public ResponseEntity<FlightBookingDTO> bookFlight(
-            @Parameter(description = "ID of the flight to book") @PathVariable Long flightId,
-            @Parameter(description = "Booking request details") @Valid @RequestBody BookFlightRequestDTO bookingRequest) {
-        return ResponseEntity.ok(flightBookingService.bookFlight(flightId, bookingRequest));
+    @Operation(summary = "Search flights", description = "All filters are optional")
+    @GetMapping("/flights/search")
+    public ResponseEntity<List<FlightDTO>> searchFlights(
+            @Parameter(description = "Departure airport code, e.g. ARN") @RequestParam(required = false) String from,
+            @Parameter(description = "Arrival airport code, e.g. LHR") @RequestParam(required = false) String to,
+            @Parameter(description = "Departure date, e.g. 2026-11-12")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Parameter(description = "Highest price, e.g. 300") @RequestParam(required = false) BigDecimal maxPrice) {
+        return ResponseEntity.ok(flightBookingService.searchFlights(from, to, date, maxPrice));
     }
 
-    @Operation(summary = "Get bookings by email", description = "Returns all bookings for a given email")
-    @ApiResponse(responseCode = "200", description = "Successfully retrieved bookings")
+    @Operation(summary = "Book a flight", description = "Books one seat for a passenger")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Flight successfully booked"),
+            @ApiResponse(responseCode = "404", description = "Flight not found", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Flight full or already departed", content = @Content)
+    })
+    @PostMapping("/flights/{flightId}/book")
+    public ResponseEntity<BookingDTO> bookFlight(
+            @Parameter(description = "ID of the flight to book") @PathVariable Long flightId,
+            @Valid @RequestBody BookFlightRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(flightBookingService.bookFlight(flightId, request));
+    }
+
+    @Operation(summary = "Get bookings by email", description = "Returns all bookings for an email")
     @GetMapping("/bookings")
-    public ResponseEntity<List<FlightBookingDTO>> getBookingsByEmail(
+    public ResponseEntity<List<BookingDTO>> getBookingsByEmail(
             @Parameter(description = "Email to search bookings for") @RequestParam String email) {
         return ResponseEntity.ok(flightBookingService.findBookingsByEmail(email));
     }
 
-    @Operation(summary = "Cancel a flight booking", description = "Cancels a flight booking for a given flight ID and email")
+    @Operation(summary = "Cancel a booking", description = "Cancels one booking and gives the seat back")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Flight successfully cancelled"),
-            @ApiResponse(responseCode = "404", description = "Flight not found", content = @Content),
-            @ApiResponse(responseCode = "400", description = "Invalid email for the booking", content = @Content)
+            @ApiResponse(responseCode = "204", description = "Booking successfully cancelled"),
+            @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Wrong email or already cancelled", content = @Content)
     })
-    @DeleteMapping("/{flightId}/cancel")
-    public ResponseEntity<Void> cancelFlight(
-            @Parameter(description = "ID of the flight to cancel") @PathVariable Long flightId,
-            @Parameter(description = "Email associated with the booking") @RequestParam String email) {
-        flightBookingService.cancelFlight(flightId, email);
+    @DeleteMapping("/bookings/{bookingId}")
+    public ResponseEntity<Void> cancelBooking(
+            @Parameter(description = "ID of the booking to cancel") @PathVariable Long bookingId,
+            @Parameter(description = "Email used for the booking") @RequestParam String email) {
+        flightBookingService.cancelBooking(bookingId, email);
         return ResponseEntity.noContent().build();
     }
 }
