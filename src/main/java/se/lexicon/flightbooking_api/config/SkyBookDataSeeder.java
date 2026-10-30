@@ -3,8 +3,10 @@ package se.lexicon.flightbooking_api.config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import se.lexicon.flightbooking_api.entity.AppUser;
 import se.lexicon.flightbooking_api.entity.Airport;
 import se.lexicon.flightbooking_api.entity.Booking;
 import se.lexicon.flightbooking_api.entity.BookingStatus;
@@ -12,6 +14,7 @@ import se.lexicon.flightbooking_api.entity.Flight;
 import se.lexicon.flightbooking_api.repository.AirportRepository;
 import se.lexicon.flightbooking_api.repository.BookingRepository;
 import se.lexicon.flightbooking_api.repository.FlightRepository;
+import se.lexicon.flightbooking_api.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +28,9 @@ import java.util.Random;
 @RequiredArgsConstructor
 public class SkyBookDataSeeder implements CommandLineRunner {
 
+    public static final String DEMO_EMAIL = "demo@skybook.com";
+    public static final String DEMO_PASSWORD = "SkyBookDemo2026";
+
     private static final int DAYS = 30;
     private static final int FLIGHTS_PER_DAY = 3;
     private static final int SEATS = 120;
@@ -32,6 +38,8 @@ public class SkyBookDataSeeder implements CommandLineRunner {
     private final AirportRepository airportRepository;
     private final FlightRepository flightRepository;
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -95,15 +103,22 @@ public class SkyBookDataSeeder implements CommandLineRunner {
         }
         flightRepository.saveAll(flights);
 
-        // A few example bookings
+        // A demo account, so visitors can try SkyBook without registering
+        AppUser demo = userRepository.save(AppUser.builder()
+                .name("Demo Traveller")
+                .email(DEMO_EMAIL)
+                .passwordHash(passwordEncoder.encode(DEMO_PASSWORD))
+                .createdAt(LocalDateTime.now())
+                .build());
+
         List<Booking> bookings = List.of(
-                booking(flights.get(0), "John Doe", "john.doe@example.com"),
-                booking(flights.get(1), "Jane Smith", "jane.smith@example.com"),
-                booking(flights.get(4), "Mike Johnson", "mike.johnson@example.com")
+                booking(flights.get(0), demo, "Demo Traveller", DEMO_EMAIL),
+                booking(flights.get(4), demo, "Demo Traveller", DEMO_EMAIL),
+                booking(flights.get(10), demo, "Alex Traveller", "alex@example.com")
         );
         bookingRepository.saveAll(bookings);
 
-        log.info("Seeded {} airports, {} flights and {} bookings.",
+        log.info("Seeded {} airports, {} flights, 1 demo user and {} bookings.",
                 airports.size(), flights.size(), bookings.size());
     }
 
@@ -119,12 +134,13 @@ public class SkyBookDataSeeder implements CommandLineRunner {
                 .build();
     }
 
-    private Booking booking(Flight flight, String name, String email) {
+    private Booking booking(Flight flight, AppUser user, String passengerName, String passengerEmail) {
         flight.setAvailableSeats(flight.getAvailableSeats() - 1);
         return Booking.builder()
                 .flight(flight)
-                .passengerName(name)
-                .passengerEmail(email)
+                .user(user)
+                .passengerName(passengerName)
+                .passengerEmail(passengerEmail)
                 .status(BookingStatus.CONFIRMED)
                 .bookedAt(LocalDateTime.now())
                 .build();

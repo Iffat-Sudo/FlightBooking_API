@@ -14,8 +14,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             join fetch b.flight f
             join fetch f.departureAirport
             join fetch f.arrivalAirport
-            where lower(b.passengerEmail) = lower(:email)
+            where lower(b.user.email) = lower(:email)
             order by f.departureTime
             """)
-    List<Booking> findByPassengerEmailWithFlight(@Param("email") String email);
+    List<Booking> findByUserEmailWithFlight(@Param("email") String email);
 }

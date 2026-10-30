@@ -25,6 +25,13 @@ public class Booking {
     @ToString.Exclude
     private Flight flight;
 
+    // The account that made the booking
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id")
+    @ToString.Exclude
+    private AppUser user;
+
+    // The person who flies (can be someone else, e.g. a family member)
     @Column(nullable = false)
     private String passengerName;
 

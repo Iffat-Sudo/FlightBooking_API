@@ -8,6 +8,7 @@ import se.lexicon.flightbooking_api.dto.AirportDTO;
 import se.lexicon.flightbooking_api.dto.BookFlightRequestDTO;
 import se.lexicon.flightbooking_api.dto.BookingDTO;
 import se.lexicon.flightbooking_api.dto.FlightDTO;
+import se.lexicon.flightbooking_api.entity.AppUser;
 import se.lexicon.flightbooking_api.entity.Booking;
 import se.lexicon.flightbooking_api.entity.BookingStatus;
 import se.lexicon.flightbooking_api.entity.Flight;
@@ -17,6 +18,7 @@ import se.lexicon.flightbooking_api.mapper.FlightBookingMapper;
 import se.lexicon.flightbooking_api.repository.AirportRepository;
 import se.lexicon.flightbooking_api.repository.BookingRepository;
 import se.lexicon.flightbooking_api.repository.FlightRepository;
+import se.lexicon.flightbooking_api.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,6 +33,7 @@ public class FlightBookingServiceImpl implements FlightBookingService {
     private final AirportRepository airportRepository;
     private final FlightRepository flightRepository;
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
     private final FlightBookingMapper mapper;
 
     @Override
@@ -73,7 +76,10 @@ public class FlightBookingServiceImpl implements FlightBookingService {
     }
 
     @Override
-    public BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request) {
+    public BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request, String userEmail) {
+        AppUser user = userRepository.findByEmailIgnoreCase(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         Flight flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new ResourceNotFoundException("Flight not found"));
 
@@ -88,6 +94,7 @@ public class FlightBookingServiceImpl implements FlightBookingService {
 
         Booking booking = bookingRepository.save(Booking.builder()
                 .flight(flight)
+                .user(user)
                 .passengerName(request.passengerName())
                 .passengerEmail(request.passengerEmail())
                 .status(BookingStatus.CONFIRMED)
@@ -99,19 +106,20 @@ public class FlightBookingServiceImpl implements FlightBookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingDTO> findBookingsByEmail(String email) {
-        return bookingRepository.findByPassengerEmailWithFlight(email).stream()
+    public List<BookingDTO> findMyBookings(String userEmail) {
+        return bookingRepository.findByUserEmailWithFlight(userEmail).stream()
                 .map(mapper::toBookingDTO)
                 .toList();
     }
 
     @Override
-    public void cancelBooking(Long bookingId, String email) {
+    public void cancelBooking(Long bookingId, String userEmail) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        if (!booking.getPassengerEmail().equalsIgnoreCase(email)) {
-            throw new FlightBookingException("Passenger email does not match");
+        // Someone else's booking? Say "not found", so we don't show that it exists.
+        if (!booking.getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new ResourceNotFoundException("Booking not found");
         }
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new FlightBookingException("This booking is already cancelled");

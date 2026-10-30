@@ -19,9 +19,9 @@ public interface FlightBookingService {
 
     List<FlightDTO> searchFlights(String from, String to, LocalDate date, BigDecimal maxPrice);
 
-    BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request);
+    BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request, String userEmail);
 
-    List<BookingDTO> findBookingsByEmail(String email);
+    List<BookingDTO> findMyBookings(String userEmail);
 
-    void cancelBooking(Long bookingId, String email);
+    void cancelBooking(Long bookingId, String userEmail);
 }

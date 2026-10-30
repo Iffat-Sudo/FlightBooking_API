@@ -5,12 +5,15 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import se.lexicon.flightbooking_api.dto.AirportDTO;
 import se.lexicon.flightbooking_api.dto.BookFlightRequestDTO;
@@ -59,38 +62,43 @@ public class FlightBookingController {
         return ResponseEntity.ok(flightBookingService.searchFlights(from, to, date, maxPrice));
     }
 
-    @Operation(summary = "Book a flight", description = "Books one seat for a passenger")
+    @Operation(summary = "Book a flight", description = "Books one seat. Needs login.",
+            security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Flight successfully booked"),
+            @ApiResponse(responseCode = "401", description = "Not logged in", content = @Content),
             @ApiResponse(responseCode = "404", description = "Flight not found", content = @Content),
             @ApiResponse(responseCode = "400", description = "Flight full or already departed", content = @Content)
     })
     @PostMapping("/flights/{flightId}/book")
     public ResponseEntity<BookingDTO> bookFlight(
             @Parameter(description = "ID of the flight to book") @PathVariable Long flightId,
-            @Valid @RequestBody BookFlightRequestDTO request) {
+            @Valid @RequestBody BookFlightRequestDTO request,
+            @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(flightBookingService.bookFlight(flightId, request));
+                .body(flightBookingService.bookFlight(flightId, request, jwt.getSubject()));
     }
 
-    @Operation(summary = "Get bookings by email", description = "Returns all bookings for an email")
+    @Operation(summary = "My bookings", description = "Returns the bookings of the logged-in user",
+            security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/bookings")
-    public ResponseEntity<List<BookingDTO>> getBookingsByEmail(
-            @Parameter(description = "Email to search bookings for") @RequestParam String email) {
-        return ResponseEntity.ok(flightBookingService.findBookingsByEmail(email));
+    public ResponseEntity<List<BookingDTO>> getMyBookings(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(flightBookingService.findMyBookings(jwt.getSubject()));
     }
 
-    @Operation(summary = "Cancel a booking", description = "Cancels one booking and gives the seat back")
+    @Operation(summary = "Cancel a booking", description = "Cancels one of your bookings and gives the seat back",
+            security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Booking successfully cancelled"),
+            @ApiResponse(responseCode = "401", description = "Not logged in", content = @Content),
             @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content),
-            @ApiResponse(responseCode = "400", description = "Wrong email or already cancelled", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Already cancelled", content = @Content)
     })
     @DeleteMapping("/bookings/{bookingId}")
     public ResponseEntity<Void> cancelBooking(
             @Parameter(description = "ID of the booking to cancel") @PathVariable Long bookingId,
-            @Parameter(description = "Email used for the booking") @RequestParam String email) {
-        flightBookingService.cancelBooking(bookingId, email);
+            @AuthenticationPrincipal Jwt jwt) {
+        flightBookingService.cancelBooking(bookingId, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 }
