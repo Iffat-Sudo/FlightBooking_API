@@ -76,6 +76,14 @@ public class FlightBookingServiceImpl implements FlightBookingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public FlightDTO findFlightById(Long flightId) {
+        return flightRepository.findById(flightId)
+                .map(mapper::toFlightDTO)
+                .orElseThrow(() -> new ResourceNotFoundException("Flight not found"));
+    }
+
+    @Override
     public BookingDTO bookFlight(Long flightId, BookFlightRequestDTO request, String userEmail) {
         AppUser user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

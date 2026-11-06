@@ -61,6 +61,16 @@ public class FlightBookingController {
             @Parameter(description = "Highest price, e.g. 300") @RequestParam(required = false) BigDecimal maxPrice) {
         return ResponseEntity.ok(flightBookingService.searchFlights(from, to, date, maxPrice));
     }
+    @Operation(summary = "Get one flight", description = "Returns one flight by its id")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Flight found"),
+            @ApiResponse(responseCode = "404", description = "Flight not found", content = @Content)
+    })
+    @GetMapping("/flights/{flightId}")
+    public ResponseEntity<FlightDTO> getFlight(
+            @Parameter(description = "ID of the flight") @PathVariable Long flightId) {
+        return ResponseEntity.ok(flightBookingService.findFlightById(flightId));
+    }
 
     @Operation(summary = "Book a flight", description = "Books one seat. Needs login.",
             security = @SecurityRequirement(name = "bearerAuth"))
