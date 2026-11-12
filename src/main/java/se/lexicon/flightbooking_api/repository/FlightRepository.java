@@ -8,6 +8,7 @@ import se.lexicon.flightbooking_api.entity.Flight;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface FlightRepository extends JpaRepository<Flight, Long> {
 
@@ -37,4 +38,7 @@ public interface FlightRepository extends JpaRepository<Flight, Long> {
                         @Param("start") LocalDateTime start,
                         @Param("end") LocalDateTime end,
                         @Param("maxPrice") BigDecimal maxPrice);
+
+    @Query("select max(f.departureTime) from Flight f")
+    Optional<LocalDateTime> findLatestDepartureTime();
 }
